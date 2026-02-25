@@ -35,7 +35,7 @@ jobs:
           submodules: 'recursive'
           
       - name: Download/Install emsdk
-        run:
+        run: |
           git clone --depth 1 -b 5.0.1 https://github.com/emscripten-core/emsdk.git emsdk
           sudo apt-get install -y python3 git cmake xz-utils
           cd emsdk
@@ -51,7 +51,7 @@ jobs:
           emmake make -j$(nproj)
 
       - name: Collect build artifacts
-        run:
+        run: |
           mkdir public
           cp build/audio-processor.js public/
           cp build/ProjectMWasm.* public/
