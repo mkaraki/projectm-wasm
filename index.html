@@ -1,0 +1,275 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+        <title>ProjectM WASM</title>
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.13.1/font/bootstrap-icons.min.css"
+            integrity="sha256-pdY4ejLKO67E0CM2tbPtq1DJ3VGDVVdqAR6j3ZwdiE4="
+            crossorigin="anonymous"
+        />
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+                background-color: #000;
+                width: 100%;
+                height: 100%;
+            }
+            #canvas-container {
+                position: absolute;
+                display: block;
+                width: 100%;
+                height: calc(100% - 70px);
+            }
+            canvas {
+                display: block;
+                width: 100%;
+                height: 100%;
+                outline: none;
+            }
+            #controls {
+                height: calc(70px - 32px);
+                display: flex;
+                justify-content: space-between;
+                padding: 16px;
+                background: linear-gradient(
+                    to bottom,
+                    #f2f2f2 0%,
+                    #e6e6e6 30%,
+                    #d4d4d4 50%,
+                    #c4c4c4 100%
+                );
+            }
+            .metal-button {
+                background: linear-gradient(
+                    to bottom,
+                    #f2f2f2 0%,
+                    #e6e6e6 30%,
+                    #d4d4d4 50%,
+                    #c4c4c4 100%
+                );
+                border: 1px solid #888;
+                border-radius: 50%;
+            }
+            .button-small {
+                width: 30px;
+                height: 30px;
+            }
+            .button-large {
+                width: 38px;
+                height: 38px;
+            }
+            .slider-container {
+                display: block;
+                margin: auto 0;
+            }
+            .playback-info {
+                position: relative;
+                transform: translateY(-16px);
+                height: calc(calc(70px - 12px) - 10px);
+                padding: 6px 0;
+                padding-bottom: 16px;
+                width: 380px;
+                background-color: #a0a0a0;
+                display: flex;
+                flex-direction: column;
+
+                text-align: center;
+            }
+            #track-title {
+                font-weight: bold;
+                font-size: 12pt;
+            }
+            #track-artist {
+                font-size: 11pt;
+                color: #202020;
+            }
+            #duration-info {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: 16px;
+                font-size: 13px;
+                color: #404040;
+            }
+            .playback-bar {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                height: 3px;
+                background-color: #808080;
+                border-radius: 2px;
+            }
+            #duration-text {
+                position: absolute;
+                top: 0;
+                left: 0;
+                right: 0;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                width: 100%;
+                height: 13px;
+                > span {
+                    padding: 0 5px;
+                    display: block;
+                }
+            }
+            .hide {
+                display: none !important;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="controls">
+            <div>
+                <button
+                    class="metal-button button-small"
+                    onclick="startScreenShare()"
+                    title="Use audio from system"
+                >
+                    <i class="bi bi-box-arrow-in-right"></i>
+                </button>
+                <button class="metal-button button-large" title="Play/Pause">
+                    <i class="bi bi-play-fill"></i>
+                </button>
+                <!--<button
+                    class="metal-button button-small"
+                    title="Use audio file"
+                >
+                    <i class="bi bi-file-music-fill"></i>
+                </button>-->
+            </div>
+            <div class="playback-info" id="initial-playback-info"></div>
+            <div class="playback-info hide" id="played-playback-info">
+                <div>
+                    <b id="track-title">Title</b>
+                </div>
+                <div id="track-artist">Artist</div>
+                <div id="duration-info">
+                    <!-- Seek bar and duration -->
+                    <div id="duration-text">
+                        <span id="duration-current">0:00</span>
+                        <span id="duration-total">0:00</span>
+                    </div>
+                    <div class="playback-bar"></div>
+                </div>
+            </div>
+            <div class="slider-container">
+                <input
+                    type="range"
+                    title="Volume"
+                    min="0"
+                    max="100"
+                    value="0"
+                    disabled="1"
+                />
+            </div>
+        </div>
+
+        <div id="canvas-container">
+            <canvas id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+        </div>
+
+        <script type="text/javascript">
+            const initialPlaybackInfo = document.getElementById(
+                "initial-playback-info",
+            );
+            const playedPlaybackInfo = document.getElementById(
+                "played-playback-info",
+            );
+            const trackTitle = document.getElementById("track-title");
+            const trackArtist = document.getElementById("track-artist");
+            const durationCurrent = document.getElementById("duration-current");
+            const durationTotal = document.getElementById("duration-total");
+
+            let streamStartTime = Date.now();
+            let streamTimeTimer = null;
+
+            var canvas = document.getElementById("canvas");
+            var Module = {
+                canvas: canvas,
+            };
+            const canvasContainer = document.getElementById("canvas-container");
+            window.onresize = () => {
+                const newWidth = canvasContainer.clientWidth;
+                const newHeight = canvasContainer.clientHeight;
+                console.log("Resize to:", newWidth, newHeight);
+                canvas.width = newWidth;
+                canvas.height = newHeight;
+                Module._on_resize(newWidth, newHeight);
+            };
+            window.onload = () => {
+                setTimeout(() => {
+                    window.onresize();
+                }, 1000);
+            };
+        </script>
+
+        <script>
+            async function startScreenShare() {
+                clearInterval(streamTimeTimer);
+
+                try {
+                    const stream = await navigator.mediaDevices.getDisplayMedia(
+                        {
+                            video: true,
+                            audio: true,
+                        },
+                    );
+
+                    const audioCtx = new (
+                        window.AudioContext || window.webkitAudioContext
+                    )();
+                    const source = audioCtx.createMediaStreamSource(stream);
+
+                    await audioCtx.audioWorklet.addModule("audio-processor.js");
+
+                    const workletNode = new AudioWorkletNode(
+                        audioCtx,
+                        "projectm-audio-processor",
+                    );
+
+                    const bufferPtr = Module._get_audio_buffer();
+                    workletNode.port.onmessage = (e) => {
+                        const inputData = e.data;
+                        Module.HEAPF32.set(inputData, bufferPtr >> 2);
+                        Module._process_audio_buffer(inputData.length);
+                    };
+
+                    source.connect(workletNode);
+
+                    initialPlaybackInfo.classList.add("hide");
+                    playedPlaybackInfo.classList.remove("hide");
+
+                    trackTitle.innerText = "Display Media";
+                    trackArtist.innerText = "Unknown";
+                    streamStartTime = Date.now();
+                    streamTimeTimer = setInterval(() => {
+                        const currentTime = Date.now();
+                        const elapsedTime = currentTime - streamStartTime;
+                        const minutes = Math.floor(elapsedTime / 60000);
+                        const seconds = Math.floor(
+                            (elapsedTime % 60000) / 1000,
+                        );
+                        const formattedTime = `${minutes}:${seconds.toString().padStart(2, "0")}`;
+                        durationCurrent.innerText = formattedTime;
+                        durationTotal.innerText = "";
+                    }, 200);
+                } catch (err) {
+                    console.error("Error starting screen share:", err);
+                }
+            }
+        </script>
+
+        <script src="ProjectMWasm.js"></script>
+    </body>
+</html>
