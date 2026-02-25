@@ -33,3 +33,6 @@ target_link_libraries(ProjectMWasm
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/index.html
 DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/audio-processor.js
+DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
